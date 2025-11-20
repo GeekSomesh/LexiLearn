@@ -1,0 +1,245 @@
+import { useState } from 'react';
+import { Sidebar } from './components/Sidebar';
+import { FormattingToolbar } from './components/FormattingToolbar';
+import { ChatArea } from './components/ChatArea';
+import { InputBar } from './components/InputBar';
+import { MindMapPanel } from './components/MindMapPanel';
+import { SummarizerPage } from './components/SummarizerPage';
+import { Project, Chat, Message, MindMapNode } from './types';
+import { callOpenRouter } from './services/openRouterService';
+
+const sampleProjects: Project[] = [
+  {
+    id: '1',
+    user_id: 'demo',
+    name: 'New Project',
+    icon: '📁',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: '2',
+    user_id: 'demo',
+    name: 'Project AI',
+    icon: '📁',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: '3',
+    user_id: 'demo',
+    name: 'Homework',
+    icon: '📁',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: '4',
+    user_id: 'demo',
+    name: 'Topic',
+    icon: '📁',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }
+];
+
+const sampleChats: Chat[] = [
+  {
+    id: '1',
+    user_id: 'demo',
+    project_id: null,
+    title: 'The advantages of AI',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: '2',
+    user_id: 'demo',
+    project_id: null,
+    title: 'Platform Marketplace',
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+    updated_at: new Date(Date.now() - 86400000).toISOString()
+  },
+  {
+    id: '3',
+    user_id: 'demo',
+    project_id: null,
+    title: 'Platform Marketplace',
+    created_at: new Date(Date.now() - 172800000).toISOString(),
+    updated_at: new Date(Date.now() - 172800000).toISOString()
+  }
+];
+
+const sampleMessages: Message[] = [
+  {
+    id: '1',
+    chat_id: '1',
+    role: 'user',
+    content: 'The advantages of Artificial Intelligence',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: '2',
+    chat_id: '1',
+    role: 'assistant',
+    content: `Artificial Intelligence (AI) offers numerous advantages and has the potential to revolutionize various aspects of our lives. Here are some key advantages of AI:
+
+1. Automation: AI can automate repetitive and mundane tasks, saving time and effort for humans. It can handle large volumes of data, perform complex calculations, and execute tasks with precision and consistency. This automation leads to increased productivity and efficiency in various industries.
+
+2. Decision-making: AI systems can analyze vast amounts of data, identify patterns, and make informed decisions based on that analysis. This ability is particularly useful in complex scenarios where humans may struggle to process large datasets or where quick and accurate decisions are crucial.
+
+3. Improved accuracy: AI algorithms can achieve high levels of accuracy and precision in tasks such as image recognition, natural language processing, and data analysis. They can eliminate human errors caused by fatigue, distractions, or bias, leading to more reliable and consistent results.`,
+    created_at: new Date().toISOString()
+  }
+];
+
+const sampleMindMapNodes: MindMapNode[] = [
+  {
+    id: '1',
+    label: 'Automation',
+    content: 'AI can automate repetitive and mundane tasks, saving time and effort for humans. It can handle large volumes of data, perform complex calculations, and execute tasks with precision.',
+    x: 0,
+    y: 0,
+    children: ['1a', '1b']
+  },
+  {
+    id: '2',
+    label: 'Decision making',
+    content: 'AI systems can analyze vast amounts of data, identify patterns, and make informed decisions based on that analysis.',
+    x: 0,
+    y: 100,
+    children: []
+  }
+];
+
+function App() {
+  const [projects] = useState<Project[]>(sampleProjects);
+  const [chats, setChats] = useState<Chat[]>(sampleChats);
+  const [selectedChatId, setSelectedChatId] = useState<string | null>('1');
+  const [messages, setMessages] = useState<Message[]>(sampleMessages);
+  const [mindMapNodes] = useState<MindMapNode[]>(sampleMindMapNodes);
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentView, setCurrentView] = useState<'chat' | 'summarizer'>('chat');
+
+  const selectedChat = chats.find((chat) => chat.id === selectedChatId);
+  const chatMessages = messages.filter((msg) => msg.chat_id === selectedChatId);
+
+  const handleNewChat = () => {
+    const newChat: Chat = {
+      id: `chat-${Date.now()}`,
+      user_id: 'demo',
+      project_id: null,
+      title: 'New Chat',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    setChats([newChat, ...chats]);
+    setSelectedChatId(newChat.id);
+  };
+
+  const handleSelectChat = (chatId: string) => {
+    setSelectedChatId(chatId);
+    setCurrentView('chat');
+  };
+
+  const handleSendMessage = async (content: string) => {
+    if (!selectedChatId) return;
+
+    const userMessage: Message = {
+      id: `msg-${Date.now()}`,
+      chat_id: selectedChatId,
+      role: 'user',
+      content,
+      created_at: new Date().toISOString()
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setIsLoading(true);
+
+    try {
+      // Get conversation history for context
+      const conversationHistory = chatMessages.map(msg => ({
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content
+      }));
+
+      // Add the new user message
+      conversationHistory.push({
+        role: 'user',
+        content
+      });
+
+      // Call OpenRouter API
+      const assistantResponse = await callOpenRouter(conversationHistory);
+
+      const assistantMessage: Message = {
+        id: `msg-${Date.now()}-ai`,
+        chat_id: selectedChatId,
+        role: 'assistant',
+        content: assistantResponse,
+        created_at: new Date().toISOString()
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      if (selectedChat && selectedChat.title === 'New Chat') {
+        setChats((prev) =>
+          prev.map((chat) =>
+            chat.id === selectedChatId
+              ? { ...chat, title: content.slice(0, 50) }
+              : chat
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Failed to get response:', error);
+      const errorMessage: Message = {
+        id: `msg-${Date.now()}-error`,
+        chat_id: selectedChatId,
+        role: 'assistant',
+        content: 'Sorry, I encountered an error while processing your message. Please try again.',
+        created_at: new Date().toISOString()
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-[#FFFFF0] overflow-hidden">
+      <div className="hidden lg:block">
+        <Sidebar
+          projects={projects}
+          chats={chats}
+          onNewChat={handleNewChat}
+          onSelectChat={handleSelectChat}
+          selectedChatId={selectedChatId}
+          onOpenSummarizer={() => setCurrentView('summarizer')}
+          currentView={currentView}
+        />
+      </div>
+
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {currentView === 'chat' ? (
+          <>
+            <FormattingToolbar />
+            <ChatArea
+              messages={chatMessages}
+              title={selectedChat?.title || 'New Chat'}
+            />
+            <InputBar onSendMessage={handleSendMessage} disabled={isLoading} />
+          </>
+        ) : (
+          <SummarizerPage />
+        )}
+      </main>
+
+      <div className="hidden xl:block">
+        <MindMapPanel nodes={mindMapNodes} />
+      </div>
+    </div>
+  );
+}
+
+export default App;
