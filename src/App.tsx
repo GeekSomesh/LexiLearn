@@ -177,6 +177,8 @@ function App() {
     };
     setChats([newChat, ...chats]);
     setSelectedChatId(newChat.id);
+    // Switch to chat view so the new chat is visible if user was in another tool (e.g., Summarizer)
+    setCurrentView("chat");
   };
 
   const handleSelectChat = (chatId: string) => {
