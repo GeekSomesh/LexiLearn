@@ -222,22 +222,28 @@ function App() {
 
       <main className="flex-1 flex flex-col overflow-hidden">
         {currentView === 'chat' ? (
-          <>
+          <div className="flex-1 flex flex-col overflow-hidden">
             <FormattingToolbar />
-            <ChatArea
-              messages={chatMessages}
-              title={selectedChat?.title || 'New Chat'}
-            />
-            <InputBar onSendMessage={handleSendMessage} disabled={isLoading} />
-          </>
+            <div className="flex-1 flex overflow-hidden gap-4 p-4">
+              {/* Left side: Chat */}
+              <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                <ChatArea
+                  messages={chatMessages}
+                  title={selectedChat?.title || 'New Chat'}
+                />
+                <InputBar onSendMessage={handleSendMessage} disabled={isLoading} />
+              </div>
+              
+              {/* Right side: Mindmap Panel */}
+              <div className="w-1/2 flex-shrink-0 hidden lg:flex">
+                <MindMapPanel nodes={mindMapNodes} messages={chatMessages} />
+              </div>
+            </div>
+          </div>
         ) : (
           <SummarizerPage />
         )}
       </main>
-
-      <div className="hidden xl:block">
-        <MindMapPanel nodes={mindMapNodes} />
-      </div>
     </div>
   );
 }

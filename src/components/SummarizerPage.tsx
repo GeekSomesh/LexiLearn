@@ -1,7 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { FileUp, Loader, Send, Mic, Image as ImageIcon } from 'lucide-react';
+import { FileUp, Loader, Send, Mic, Image as ImageIcon, Volume2, Zap } from 'lucide-react';
+import { useSpeech } from '../hooks/useSpeech';
+import { BionicReading } from './BionicReading';
 import * as pdfjsLib from 'pdfjs-dist';
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import mermaid from 'mermaid';
+import { generateMermaidMindmapViaLLM } from '../services/llmMindmapService';
 
 interface ChatMessage {
   id: string;
@@ -30,7 +34,7 @@ const extractTextFromPdf = async (file: File): Promise<string> => {
 };
 
 const generateSummary = async (text: string): Promise<string> => {
-  const OPENROUTER_API_KEY = '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';
+  const OPENROUTER_API_KEY = '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';
   const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
   const MODEL = 'kwaipilot/kat-coder-pro:free';
 
@@ -84,7 +88,7 @@ const askFollowUpQuestion = async (
   question: string,
   conversationHistory: ChatMessage[]
 ): Promise<string> => {
-  const OPENROUTER_API_KEY = 'YOUR API KEY';
+  const OPENROUTER_API_KEY = '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';
   const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
   const MODEL = 'kwaipilot/kat-coder-pro:free';
 
@@ -145,7 +149,7 @@ const generateSuggestedQuestions = async (
   lastAssistantMessage: string,
   conversationHistory: ChatMessage[]
 ): Promise<string[]> => {
-  const OPENROUTER_API_KEY = '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';
+  const OPENROUTER_API_KEY = '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';
   const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
   const MODEL = 'kwaipilot/kat-coder-pro:free';
 
@@ -214,12 +218,16 @@ Rules:
 };
 
 export const SummarizerPage = () => {
+  const { speak, isSpeaking, stopSpeaking, audioElement } = useSpeech();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [pdfText, setPdfText] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [mermaidDiagram, setMermaidDiagram] = useState<string | null>(null);
+  const [isGeneratingMindmap, setIsGeneratingMindmap] = useState(false);
+  const mermaidContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -229,6 +237,61 @@ export const SummarizerPage = () => {
   useEffect(() => {
     scrollToBottom();
   }, [chatMessages]);
+
+  useEffect(() => {
+    // Initialize mermaid
+    mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
+  }, []);
+
+  useEffect(() => {
+    // Render mindmap when diagram changes
+    if (mermaidDiagram && mermaidContainerRef.current) {
+      const renderDiagram = async () => {
+        try {
+          console.log('Starting render, diagram length:', mermaidDiagram.length);
+          console.log('Diagram content:', mermaidDiagram.substring(0, 150));
+          
+          // Add a small delay to ensure ref is ready
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          if (!mermaidContainerRef.current) {
+            console.error('Ref is null after delay');
+            return;
+          }
+          
+          const renderId = 'summarizer-mindmap-' + Date.now();
+          console.log('Calling mermaid.render with id:', renderId);
+          const { svg } = await mermaid.render(renderId, mermaidDiagram);
+          
+          console.log('SVG rendered successfully, length:', svg.length);
+          console.log('SVG preview:', svg.substring(0, 200));
+          
+          // Clear and set innerHTML
+          mermaidContainerRef.current.innerHTML = '';
+          mermaidContainerRef.current.innerHTML = svg;
+          
+          console.log('innerHTML set successfully');
+          
+          // Style the SVG
+          const svgElement = mermaidContainerRef.current.querySelector('svg');
+          if (svgElement) {
+            svgElement.style.width = '95%';
+            svgElement.style.height = 'auto';
+            svgElement.style.maxWidth = '100%';
+            svgElement.style.display = 'block';
+            svgElement.style.margin = '0 auto';
+            console.log('SVG styled successfully');
+          } else {
+            console.warn('SVG element not found after rendering');
+          }
+        } catch (err) {
+          console.error('Failed to render diagram:', err);
+          setError('Failed to render mindmap: ' + (err instanceof Error ? err.message : String(err)));
+        }
+      };
+      renderDiagram();
+    }
+  }, [mermaidDiagram]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -322,6 +385,55 @@ export const SummarizerPage = () => {
     }
   };
 
+  const handleGenerateMindmap = async () => {
+    if (chatMessages.length === 0) {
+      setError('No messages to generate mindmap from');
+      return;
+    }
+
+    setIsGeneratingMindmap(true);
+    setError(null);
+
+    try {
+      // Convert chat messages to Message type expected by generateMermaidMindmapViaLLM
+      const messages = chatMessages.map((msg) => ({
+        id: msg.id,
+        chat_id: 'summarizer',
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+        created_at: msg.timestamp,
+      }));
+
+      const diagram = await generateMermaidMindmapViaLLM(messages);
+      console.log('Generated diagram:', diagram.substring(0, 100));
+      setMermaidDiagram(diagram);
+      // The rendering will happen in the useEffect hook
+    } catch (err) {
+      console.error('Error generating mindmap:', err);
+      setError(
+        err instanceof Error ? err.message : 'Failed to generate mindmap'
+      );
+    } finally {
+      setIsGeneratingMindmap(false);
+    }
+  };
+
+  const handleDownloadMindmap = () => {
+    if (!mermaidContainerRef.current?.innerHTML) {
+      setError('No mindmap to download');
+      return;
+    }
+
+    const svg = mermaidContainerRef.current.innerHTML;
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'mindmap.svg';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-[#FFFFF0]">
       {/* Header */}
@@ -380,93 +492,165 @@ export const SummarizerPage = () => {
             </div>
           </div>
         ) : (
-          // Chat Section
-          <div className="p-6">
-            <div className="max-w-4xl mx-auto">
-              <div className="flex items-center gap-3 mb-4 p-4 bg-blue-100 rounded-lg">
-                <span className="text-xl">📄</span>
-                <div>
-                  <p className="font-['Comic_Sans_MS'] font-semibold text-gray-800">
-                    {fileName}
-                  </p>
-                  <button
-                    onClick={() => {
-                      setPdfText(null);
-                      setChatMessages([]);
-                      setError(null);
-                    }}
-                    className="text-sm text-blue-600 hover:text-blue-800 font-['Comic_Sans_MS'] underline"
-                  >
-                    Upload Different PDF
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-lg p-6 h-96 overflow-y-auto space-y-4">
-                {chatMessages.map((message) => (
-                  <div key={message.id} className="space-y-3">
-                    <div
-                      className={`flex ${
-                        message.role === 'user' ? 'justify-end' : 'justify-start'
-                      }`}
+          // Chat Section - Side by Side Layout
+          <div className="p-4 h-full overflow-hidden">
+            <div className="h-full flex gap-4">
+              {/* Left Column: Chat */}
+              <div className="flex-1 flex flex-col min-w-0">
+                <div className="flex items-center gap-3 mb-4 p-4 bg-blue-100 rounded-lg flex-shrink-0">
+                  <span className="text-xl">📄</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-['Comic_Sans_MS'] font-semibold text-gray-800 truncate">
+                      {fileName}
+                    </p>
+                    <button
+                      onClick={() => {
+                        setPdfText(null);
+                        setChatMessages([]);
+                        setError(null);
+                        setMermaidDiagram(null);
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-800 font-['Comic_Sans_MS'] underline"
                     >
+                      Upload Different PDF
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex-1 bg-white rounded-xl shadow-lg p-6 overflow-y-auto space-y-4 min-h-0">
+                  {chatMessages.map((message) => (
+                    <div key={message.id} className="space-y-3">
                       <div
-                        className={`max-w-2xl rounded-lg px-6 py-4 ${
-                          message.role === 'user'
-                            ? 'bg-green-300 text-gray-800'
-                            : 'bg-blue-100 text-gray-800'
+                        className={`flex ${
+                          message.role === 'user' ? 'justify-end' : 'justify-start'
                         }`}
                       >
-                        <p className="font-['Comic_Sans_MS'] text-lg leading-relaxed whitespace-pre-wrap">
-                          {message.content}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Suggested Questions */}
-                    {message.role === 'assistant' && message.suggestedQuestions && message.suggestedQuestions.length > 0 && (
-                      <div className="flex justify-start">
-                        <div className="max-w-2xl space-y-2">
-                          <p className="text-sm font-['Comic_Sans_MS'] text-gray-600 px-2">
-                            💡 Would you like to know more about:
-                          </p>
-                          <div className="space-y-2 flex flex-col">
-                            {message.suggestedQuestions.map((question, idx) => (
+                        <div
+                          className={`max-w-xl rounded-lg px-6 py-4 ${
+                            message.role === 'user'
+                              ? 'bg-green-300 text-gray-800'
+                              : 'bg-blue-100 text-gray-800'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            {isSpeaking && message.role === 'assistant' ? (
+                              <BionicReading
+                                text={message.content}
+                                isPlaying={isSpeaking}
+                                audioElement={audioElement}
+                                className="font-['Comic_Sans_MS'] text-base leading-relaxed"
+                              />
+                            ) : (
+                              <p className="font-['Comic_Sans_MS'] text-base leading-relaxed whitespace-pre-wrap">
+                                {message.content}
+                              </p>
+                            )}
+                            {message.role === 'assistant' && (
                               <button
-                                key={idx}
                                 onClick={() => {
-                                  setInput(question);
+                                  if (isSpeaking) stopSpeaking();
+                                  else speak(message.content);
                                 }}
-                                className="text-left bg-purple-200 hover:bg-purple-300 text-gray-800 px-4 py-3 rounded-lg transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-400 font-['Comic_Sans_MS'] text-base leading-relaxed"
+                                className="flex-shrink-0 p-2 hover:bg-gray-200 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                aria-label={isSpeaking ? 'Stop reading' : 'Read message aloud'}
                               >
-                                • {question}
+                                <Volume2 className={`w-5 h-5 ${isSpeaking ? 'text-blue-600' : 'text-gray-600'}`} aria-hidden="true" />
                               </button>
-                            ))}
+                            )}
                           </div>
                         </div>
                       </div>
-                    )}
-                  </div>
-                ))}
 
-                {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-blue-100 rounded-lg px-6 py-4 flex items-center gap-3">
-                      <Loader className="w-5 h-5 text-blue-600 animate-spin" />
-                      <span className="font-['Comic_Sans_MS'] text-gray-800">
-                        Thinking...
-                      </span>
+                      {/* Suggested Questions */}
+                      {message.role === 'assistant' && message.suggestedQuestions && message.suggestedQuestions.length > 0 && (
+                        <div className="flex justify-start">
+                          <div className="max-w-xl space-y-2">
+                            <p className="text-xs font-['Comic_Sans_MS'] text-gray-600 px-2">
+                              💡 Would you like to know more about:
+                            </p>
+                            <div className="space-y-2 flex flex-col">
+                              {message.suggestedQuestions.map((question, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => {
+                                    setInput(question);
+                                  }}
+                                  className="text-left bg-purple-200 hover:bg-purple-300 text-gray-800 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-400 font-['Comic_Sans_MS'] text-sm leading-relaxed"
+                                >
+                                  • {question}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                  ))}
 
-                {error && (
-                  <div className="bg-red-100 border-2 border-red-400 text-red-700 px-4 py-3 rounded font-['Comic_Sans_MS']">
-                    Error: {error}
-                  </div>
-                )}
+                  {isLoading && (
+                    <div className="flex justify-start">
+                      <div className="bg-blue-100 rounded-lg px-6 py-4 flex items-center gap-3">
+                        <Loader className="w-5 h-5 text-blue-600 animate-spin" />
+                        <span className="font-['Comic_Sans_MS'] text-gray-800 text-sm">
+                          Thinking...
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
-                <div ref={messagesEndRef} />
+                  {error && (
+                    <div className="bg-red-100 border-2 border-red-400 text-red-700 px-4 py-3 rounded font-['Comic_Sans_MS'] text-sm">
+                      Error: {error}
+                    </div>
+                  )}
+
+                  <div ref={messagesEndRef} />
+                </div>
+              </div>
+
+              {/* Right Column: Mindmap Panel - Large and Prominent */}
+              <div className="w-1/2 flex flex-col bg-white rounded-xl shadow-lg overflow-hidden min-w-0">
+                <div className="p-4 border-b border-gray-300 bg-gradient-to-r from-purple-100 to-blue-100 flex-shrink-0">
+                  <h3 className="text-xl font-bold text-gray-800 font-['Comic_Sans_MS'] mb-3">
+                    📊 Mindmap
+                  </h3>
+                  <button
+                    onClick={handleGenerateMindmap}
+                    disabled={isGeneratingMindmap || chatMessages.length === 0}
+                    className="w-full px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-bold rounded-lg transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:opacity-50 disabled:cursor-not-allowed font-['Comic_Sans_MS'] text-base flex items-center justify-center gap-2"
+                  >
+                    <Zap className="w-5 h-5" />
+                    {isGeneratingMindmap ? 'Generating...' : 'Generate'}
+                  </button>
+                </div>
+
+                <div
+                  className="flex-1 overflow-auto bg-gray-50 flex flex-col min-h-0 p-4"
+                >
+                  {mermaidDiagram ? (
+                    <>
+                      <div className="flex justify-center mb-3 flex-shrink-0">
+                        <button
+                          onClick={handleDownloadMindmap}
+                          className="px-4 py-2 bg-blue-400 hover:bg-blue-500 text-white font-bold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-['Comic_Sans_MS'] text-sm"
+                        >
+                          ⬇️ Download
+                        </button>
+                      </div>
+                      <div
+                        ref={mermaidContainerRef}
+                        className="flex-1 overflow-auto flex items-center justify-center min-h-0 bg-white rounded-lg"
+                      />
+                    </>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center text-gray-500 font-['Comic_Sans_MS'] text-center px-4">
+                      <div>
+                        <p className="text-base">📌 Generate a mindmap</p>
+                        <p className="text-xs mt-2 text-gray-400">Click the button above</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

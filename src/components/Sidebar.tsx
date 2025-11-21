@@ -17,7 +17,7 @@ export const Sidebar = ({ projects, chats, onNewChat, onSelectChat, selectedChat
       <div className="flex items-center gap-2 mb-6">
         <Brain className="w-8 h-8 text-purple-600" aria-hidden="true" />
         <h1 className="text-xl font-bold text-gray-800 font-['Comic_Sans_MS']">
-          DysLearn AI
+          LexiLearn
         </h1>
       </div>
 

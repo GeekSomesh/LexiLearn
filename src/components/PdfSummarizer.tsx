@@ -28,7 +28,7 @@ const extractTextFromPdf = async (file: File): Promise<string> => {
 };
 
 const generateSummary = async (text: string): Promise<string> => {
-  const OPENROUTER_API_KEY = 'YOUR API KEY';
+  const OPENROUTER_API_KEY = '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';
   const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
   const MODEL = 'openai/gpt-4o-mini';
 

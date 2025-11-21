@@ -1,4 +1,4 @@
-const OPENROUTER_API_KEY = 'YOUR API KEY';
+const OPENROUTER_API_KEY = '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';
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const MODEL = 'kwaipilot/kat-coder-pro:free';
 

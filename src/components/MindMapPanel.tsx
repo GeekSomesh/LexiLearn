@@ -1,143 +1,160 @@
-import { useState } from 'react';
-import { Play, Settings, ChevronDown, ChevronRight } from 'lucide-react';
-import { MindMapNode } from '../types';
+import { useState, useEffect, useRef } from 'react';
+import { Zap } from 'lucide-react';
+import { Message } from '../types';
+import mermaid from 'mermaid';
+import { generateMermaidMindmapViaLLM } from '../services/llmMindmapService';
 
 interface MindMapPanelProps {
-  nodes: MindMapNode[];
+  nodes?: any[];
+  messages?: Message[];
 }
 
-interface NodeCardProps {
-  node: MindMapNode;
-  index: number;
-  isExpanded: boolean;
-  onToggle: () => void;
-}
+export const MindMapPanel = ({ messages = [] }: MindMapPanelProps) => {
+  const [mermaidDiagram, setMermaidDiagram] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const mermaidContainerRef = useRef<HTMLDivElement>(null);
 
-const NodeCard = ({ node, index, isExpanded, onToggle }: NodeCardProps) => {
-  return (
-    <div className="relative">
-      <div className="bg-white border-2 border-green-300 rounded-xl p-4 mb-4 shadow-sm">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-green-300 rounded-full flex items-center justify-center font-bold text-gray-800">
-              {index + 1}
-            </div>
-            <h3 className="font-bold text-gray-800 font-['Comic_Sans_MS'] text-base">
-              {node.label}
-            </h3>
-          </div>
-          <div className="flex gap-1">
-            <button
-              onClick={onToggle}
-              className="p-1 hover:bg-gray-200 rounded transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-400"
-              aria-label={isExpanded ? 'Collapse' : 'Expand'}
-            >
-              {isExpanded ? (
-                <ChevronDown className="w-4 h-4 text-gray-600" aria-hidden="true" />
-              ) : (
-                <ChevronRight className="w-4 h-4 text-gray-600" aria-hidden="true" />
-              )}
-            </button>
-            <button
-              className="p-1 hover:bg-gray-200 rounded transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-400"
-              aria-label="Node settings"
-            >
-              <Settings className="w-4 h-4 text-gray-600" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
+  // Initialize mermaid
+  useEffect(() => {
+    mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
+  }, []);
 
-        {isExpanded && (
-          <p className="text-gray-700 font-['Comic_Sans_MS'] text-sm leading-relaxed tracking-wide mt-2">
-            {node.content}
-          </p>
-        )}
-      </div>
+  // Render mindmap when diagram changes
+  useEffect(() => {
+    if (mermaidDiagram && mermaidContainerRef.current) {
+      const renderDiagram = async () => {
+        try {
+          console.log('Starting render, diagram length:', mermaidDiagram.length);
+          
+          // Add a small delay to ensure ref is ready
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          if (!mermaidContainerRef.current) {
+            console.error('Ref is null after delay');
+            return;
+          }
+          
+          const renderId = 'chatbot-mindmap-' + Date.now();
+          console.log('Calling mermaid.render with id:', renderId);
+          const { svg } = await mermaid.render(renderId, mermaidDiagram);
+          
+          console.log('SVG rendered successfully, length:', svg.length);
+          
+          // Clear and set innerHTML
+          mermaidContainerRef.current.innerHTML = '';
+          mermaidContainerRef.current.innerHTML = svg;
+          
+          console.log('innerHTML set successfully');
+          
+          // Style the SVG
+          const svgElement = mermaidContainerRef.current.querySelector('svg');
+          if (svgElement) {
+            svgElement.style.width = '95%';
+            svgElement.style.height = 'auto';
+            svgElement.style.maxWidth = '100%';
+            svgElement.style.display = 'block';
+            svgElement.style.margin = '0 auto';
+            console.log('SVG styled successfully');
+          }
+        } catch (err) {
+          console.error('Failed to render diagram:', err);
+          setError('Failed to render: ' + (err instanceof Error ? err.message : String(err)));
+        }
+      };
+      renderDiagram();
+    }
+  }, [mermaidDiagram]);
 
-      {node.children && node.children.length > 0 && (
-        <div className="ml-8 pl-4 border-l-2 border-dotted border-green-300">
-          {node.children.map((childId, idx) => (
-            <div key={childId} className="mb-2">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <p className="text-gray-700 font-['Comic_Sans_MS'] text-sm">
-                  Topic {idx + 1}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
+  const handleGenerateMindmap = async () => {
+    if (messages.length === 0) {
+      setError('No messages to generate mindmap from');
+      return;
+    }
 
-export const MindMapPanel = ({ nodes }: MindMapPanelProps) => {
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+    setIsGenerating(true);
+    setError(null);
 
-  const toggleNode = (nodeId: string) => {
-    setExpandedNodes((prev) => {
-      const next = new Set(prev);
-      if (next.has(nodeId)) {
-        next.delete(nodeId);
-      } else {
-        next.add(nodeId);
-      }
-      return next;
-    });
+    try {
+      const diagram = await generateMermaidMindmapViaLLM(messages);
+      console.log('Generated diagram:', diagram.substring(0, 100));
+      setMermaidDiagram(diagram);
+    } catch (err) {
+      console.error('Error generating mindmap:', err);
+      setError(err instanceof Error ? err.message : 'Failed to generate mindmap');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const downloadMermaidSvg = () => {
+    if (!mermaidContainerRef.current?.innerHTML) {
+      setError('No mindmap to download');
+      return;
+    }
+
+    try {
+      const svg = mermaidContainerRef.current.innerHTML;
+      const blob = new Blob([svg], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mindmap-${new Date().getTime()}.svg`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading mindmap:', err);
+      setError('Failed to download mindmap');
+    }
   };
 
   return (
-    <aside className="w-full lg:w-96 bg-[#F0FFF0] h-screen overflow-y-auto p-4">
-      <div className="mb-4">
-        <div className="inline-block bg-green-300 text-gray-800 font-bold font-['Comic_Sans_MS'] px-6 py-2 rounded-full text-lg">
-          MIND MAP
-        </div>
-      </div>
-
-      <div className="bg-blue-100 rounded-xl p-4 mb-6 flex items-center gap-3">
+    <div className="w-full h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="p-4 border-b border-gray-300 bg-gradient-to-r from-purple-100 to-blue-100 flex-shrink-0">
+        <h3 className="text-xl font-bold text-gray-800 font-['Comic_Sans_MS'] mb-3">
+          📊 Chat Mindmap
+        </h3>
         <button
-          className="p-2 bg-blue-300 hover:bg-blue-400 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          aria-label="Play audio summary"
+          onClick={handleGenerateMindmap}
+          disabled={isGenerating || messages.length === 0}
+          className="w-full px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-bold rounded-lg transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:opacity-50 disabled:cursor-not-allowed font-['Comic_Sans_MS'] text-base flex items-center justify-center gap-2"
         >
-          <Play className="w-5 h-5 text-gray-800" aria-hidden="true" />
+          <Zap className="w-5 h-5" />
+          {isGenerating ? 'Generating...' : 'Generate'}
         </button>
-        <div className="flex-1 h-8 bg-blue-200 rounded-lg relative overflow-hidden">
-          <div className="absolute inset-0 flex items-center justify-center gap-1">
-            {Array.from({ length: 30 }).map((_, i) => (
-              <div
-                key={i}
-                className="w-1 bg-blue-400 rounded"
-                style={{
-                  height: `${Math.random() * 60 + 20}%`,
-                  animation: `pulse ${Math.random() * 2 + 1}s ease-in-out infinite`
-                }}
-                aria-hidden="true"
-              />
-            ))}
-          </div>
-        </div>
-        <span className="text-gray-700 font-['Comic_Sans_MS'] text-sm">2:34</span>
       </div>
 
-      <div className="space-y-4">
-        {nodes.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500 font-['Comic_Sans_MS'] text-base leading-loose tracking-wide">
-              Mind map will appear here as you chat with the AI.
-            </p>
-          </div>
-        ) : (
-          nodes.map((node, index) => (
-            <NodeCard
-              key={node.id}
-              node={node}
-              index={index}
-              isExpanded={expandedNodes.has(node.id)}
-              onToggle={() => toggleNode(node.id)}
+      <div className="flex-1 overflow-auto bg-gray-50 flex flex-col min-h-0 p-4">
+        {mermaidDiagram ? (
+          <>
+            <div className="flex justify-center mb-3 flex-shrink-0">
+              <button
+                onClick={downloadMermaidSvg}
+                className="px-4 py-2 bg-blue-400 hover:bg-blue-500 text-white font-bold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 font-['Comic_Sans_MS'] text-sm"
+              >
+                ⬇️ Download
+              </button>
+            </div>
+            <div
+              ref={mermaidContainerRef}
+              className="flex-1 overflow-auto flex items-center justify-center min-h-0 bg-white rounded-lg"
             />
-          ))
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-gray-500 font-['Comic_Sans_MS'] text-center px-4">
+            <div>
+              <p className="text-base">📌 Generate a mindmap</p>
+              <p className="text-xs mt-2 text-gray-400">Click the button above</p>
+            </div>
+          </div>
+        )}
+        
+        {error && (
+          <div className="mt-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded text-sm font-['Comic_Sans_MS']">
+            {error}
+          </div>
         )}
       </div>
-    </aside>
+    </div>
   );
 };

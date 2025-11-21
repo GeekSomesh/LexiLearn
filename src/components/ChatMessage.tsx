@@ -1,13 +1,14 @@
 import { Volume2, Bot, User } from 'lucide-react';
 import { Message } from '../types';
 import { useSpeech } from '../hooks/useSpeech';
+import { BionicReading } from './BionicReading';
 
 interface ChatMessageProps {
   message: Message;
 }
 
 export const ChatMessage = ({ message }: ChatMessageProps) => {
-  const { speak, isSpeaking, stopSpeaking } = useSpeech();
+  const { speak, isSpeaking, stopSpeaking, audioElement } = useSpeech();
   const isAssistant = message.role === 'assistant';
 
   const handleSpeak = () => {
@@ -36,9 +37,18 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
         } rounded-2xl p-6 shadow-sm`}
       >
         <div className="flex items-start justify-between gap-3 mb-2">
-          <p className="text-gray-800 font-['Comic_Sans_MS'] text-lg leading-loose tracking-wide whitespace-pre-wrap">
-            {message.content}
-          </p>
+          {isSpeaking && isAssistant ? (
+            <BionicReading
+              text={message.content}
+              isPlaying={isSpeaking}
+              audioElement={audioElement}
+              className="text-gray-800 font-['Comic_Sans_MS'] text-lg leading-loose tracking-wide"
+            />
+          ) : (
+            <p className="text-gray-800 font-['Comic_Sans_MS'] text-lg leading-loose tracking-wide whitespace-pre-wrap">
+              {message.content}
+            </p>
+          )}
           <button
             onClick={handleSpeak}
             className="flex-shrink-0 p-2 hover:bg-gray-200 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
