@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
-import { Edit, Play } from 'lucide-react';
-import { Message } from '../types';
-import { ChatMessage } from './ChatMessage';
+import { useEffect, useRef } from "react";
+import { Edit, Play } from "lucide-react";
+import { Message } from "../types";
+import { ChatMessage } from "./ChatMessage";
 
 interface ChatAreaProps {
   messages: Message[];
@@ -13,7 +13,7 @@ export const ChatArea = ({ messages, title, onTitleEdit }: ChatAreaProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   return (
@@ -42,7 +42,8 @@ export const ChatArea = ({ messages, title, onTitleEdit }: ChatAreaProps) => {
           {messages.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-500 font-['Comic_Sans_MS'] text-lg leading-loose tracking-wide">
-                Start a conversation by typing a message below or using voice input.
+                Start a conversation by typing a message below or using voice
+                input.
               </p>
             </div>
           ) : (

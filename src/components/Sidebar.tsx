@@ -1,5 +1,14 @@
-import { Brain, Plus, Search, Map, FileText, MessageCircle, Zap, FileUp } from 'lucide-react';
-import { Project, Chat } from '../types';
+import {
+  Brain,
+  Plus,
+  Search,
+  Map,
+  FileText,
+  MessageCircle,
+  Zap,
+  FileUp,
+} from "lucide-react";
+import { Project, Chat } from "../types";
 
 interface SidebarProps {
   projects: Project[];
@@ -8,10 +17,24 @@ interface SidebarProps {
   onSelectChat: (chatId: string) => void;
   selectedChatId: string | null;
   onOpenSummarizer?: () => void;
-  currentView?: 'chat' | 'summarizer';
+  onOpenScreener?: () => void;
+  dyslexicEnabled?: boolean;
+  onToggleDyslexic?: () => void;
+  currentView?: "chat" | "summarizer" | "screener";
 }
 
-export const Sidebar = ({ projects, chats, onNewChat, onSelectChat, selectedChatId, onOpenSummarizer, currentView }: SidebarProps) => {
+export const Sidebar = ({
+  projects,
+  chats,
+  onNewChat,
+  onSelectChat,
+  selectedChatId,
+  onOpenSummarizer,
+  onOpenScreener,
+  dyslexicEnabled,
+  onToggleDyslexic,
+  currentView,
+}: SidebarProps) => {
   return (
     <aside className="w-full lg:w-64 bg-[#E8E4F3] h-screen flex flex-col p-4 fixed lg:relative z-20">
       <div className="flex items-center gap-2 mb-6">
@@ -37,7 +60,9 @@ export const Sidebar = ({ projects, chats, onNewChat, onSelectChat, selectedChat
         <div className="space-y-2">
           <button className="w-full flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-purple-200 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-400">
             <Search className="w-5 h-5" aria-hidden="true" />
-            <span className="font-['Comic_Sans_MS'] text-base">Search Chats</span>
+            <span className="font-['Comic_Sans_MS'] text-base">
+              Search Chats
+            </span>
           </button>
           <button className="w-full flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-purple-200 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-400">
             <Map className="w-5 h-5" aria-hidden="true" />
@@ -47,16 +72,40 @@ export const Sidebar = ({ projects, chats, onNewChat, onSelectChat, selectedChat
             <FileText className="w-5 h-5" aria-hidden="true" />
             <span className="font-['Comic_Sans_MS'] text-base">My Notes</span>
           </button>
-          <button 
+          <button
             onClick={onOpenSummarizer}
             className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-400 ${
-              currentView === 'summarizer'
-                ? 'bg-purple-300 text-gray-800'
-                : 'text-gray-700 hover:bg-purple-200'
+              currentView === "summarizer"
+                ? "bg-purple-300 text-gray-800"
+                : "text-gray-700 hover:bg-purple-200"
             }`}
           >
             <FileUp className="w-5 h-5" aria-hidden="true" />
             <span className="font-['Comic_Sans_MS'] text-base">Summarizer</span>
+          </button>
+          <button
+            onClick={onOpenScreener}
+            className="w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-400 text-gray-700 hover:bg-purple-200"
+          >
+            <Search className="w-5 h-5" aria-hidden="true" />
+            <span className="font-['Comic_Sans_MS'] text-base">
+              Check for Dyslexia
+            </span>
+          </button>
+          <button
+            onClick={onToggleDyslexic}
+            className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-400 ${
+              dyslexicEnabled
+                ? "bg-green-200 text-gray-800"
+                : "text-gray-700 hover:bg-purple-200"
+            }`}
+          >
+            <span className="w-5 h-5" aria-hidden="true">
+              🔤
+            </span>
+            <span className="font-['Comic_Sans_MS'] text-base">
+              Dyslexic Font: {dyslexicEnabled ? "On" : "Off"}
+            </span>
           </button>
         </div>
       </div>
@@ -71,8 +120,12 @@ export const Sidebar = ({ projects, chats, onNewChat, onSelectChat, selectedChat
               key={project.id}
               className="w-full flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-purple-200 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-400"
             >
-              <span className="text-xl" aria-hidden="true">{project.icon}</span>
-              <span className="font-['Comic_Sans_MS'] text-base truncate">{project.name}</span>
+              <span className="text-xl" aria-hidden="true">
+                {project.icon}
+              </span>
+              <span className="font-['Comic_Sans_MS'] text-base truncate">
+                {project.name}
+              </span>
             </button>
           ))}
         </div>
@@ -89,12 +142,14 @@ export const Sidebar = ({ projects, chats, onNewChat, onSelectChat, selectedChat
               onClick={() => onSelectChat(chat.id)}
               className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-400 ${
                 selectedChatId === chat.id
-                  ? 'bg-purple-300 text-gray-800'
-                  : 'text-gray-700 hover:bg-purple-200'
+                  ? "bg-purple-300 text-gray-800"
+                  : "text-gray-700 hover:bg-purple-200"
               }`}
             >
               <MessageCircle className="w-5 h-5" aria-hidden="true" />
-              <span className="font-['Comic_Sans_MS'] text-base truncate">{chat.title}</span>
+              <span className="font-['Comic_Sans_MS'] text-base truncate">
+                {chat.title}
+              </span>
             </button>
           ))}
         </div>

@@ -1,0 +1,32 @@
+/* OpenDyslexic local font bundle CSS
+   Place the OpenDyslexic font files in this same folder:
+   - OpenDyslexic-Regular.woff2
+   - OpenDyslexic-Bold.woff2
+
+   If you don't have the font files, download from the OpenDyslexic project
+   and copy the WOFF2 files into `public/fonts/`.
+*/
+
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("./OpenDyslexic-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("./OpenDyslexic-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Compatibility fallback */
+html.lexile-open-dyslexic,
+body.lexile-open-dyslexic,
+.lexile-open-dyslexic * {
+  font-family: "OpenDyslexic", system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial !important;
+}
