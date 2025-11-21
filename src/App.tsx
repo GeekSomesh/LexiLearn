@@ -6,6 +6,7 @@ import { ChatArea } from "./components/ChatArea";
 import { InputBar } from "./components/InputBar";
 import { MindMapPanel } from "./components/MindMapPanel";
 import { VisualCrowdingScreener } from "./components/VisualCrowdingScreener";
+import { PricingPage } from "./components/PricingPage";
 import {
   initRecommendationsFromStore,
   getRecommendationStore,
@@ -130,7 +131,7 @@ function App() {
   const [mindMapNodes] = useState<MindMapNode[]>(sampleMindMapNodes);
   const [isLoading, setIsLoading] = useState(false);
   const [currentView, setCurrentView] = useState<
-    "chat" | "summarizer" | "screener"
+    "chat" | "summarizer" | "screener" | "pricing"
   >("chat");
 
   useEffect(() => {
@@ -177,7 +178,7 @@ function App() {
     };
     setChats([newChat, ...chats]);
     setSelectedChatId(newChat.id);
-    // Switch to chat view so the new chat is visible if user was in another tool (e.g., Summarizer)
+    // Ensure the UI switches back to chat view so the user sees the new chat immediately
     setCurrentView("chat");
   };
 
@@ -262,6 +263,7 @@ function App() {
           selectedChatId={selectedChatId}
           onOpenSummarizer={() => setCurrentView("summarizer")}
           onOpenScreener={() => setCurrentView("screener")}
+          onOpenPricing={() => setCurrentView("pricing")}
           dyslexicEnabled={dyslexicEnabled}
           onToggleDyslexic={handleToggleDyslexic}
           currentView={currentView}
@@ -294,8 +296,10 @@ function App() {
             </div>
           ) : currentView === "summarizer" ? (
             <SummarizerPage />
-          ) : (
+          ) : currentView === "screener" ? (
             <VisualCrowdingScreener onClose={() => setCurrentView("chat")} />
+          ) : (
+            <PricingPage onClose={() => setCurrentView("chat")} />
           )}
         </ErrorBoundary>
       </main>

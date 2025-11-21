@@ -34,7 +34,7 @@ const extractTextFromPdf = async (file: File): Promise<string> => {
 };
 
 const generateSummary = async (text: string): Promise<string> => {
-  const OPENROUTER_API_KEY = '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';
+  const OPENROUTER_API_KEY = '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';
   const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
   const MODEL = 'kwaipilot/kat-coder-pro:free';
 
@@ -88,7 +88,7 @@ const askFollowUpQuestion = async (
   question: string,
   conversationHistory: ChatMessage[]
 ): Promise<string> => {
-  const OPENROUTER_API_KEY = '4e0feb216baf52edb764435b954bf39291949babc3197531d1e8c3a86e8cfb59';
+  const OPENROUTER_API_KEY = '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';
   const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
   const MODEL = 'kwaipilot/kat-coder-pro:free';
 
@@ -149,7 +149,7 @@ const generateSuggestedQuestions = async (
   lastAssistantMessage: string,
   conversationHistory: ChatMessage[]
 ): Promise<string[]> => {
-  const OPENROUTER_API_KEY = '4e0feb216baf52edb764435b954bf39291949babc3197531d1e8c3a86e8cfb59';
+  const OPENROUTER_API_KEY = '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';
   const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
   const MODEL = 'kwaipilot/kat-coder-pro:free';
 
