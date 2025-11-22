@@ -1,4 +1,4 @@
-const ELEVENLABS_API_KEY = 'sk_8a6e75101c9f96492bf38b036c4bf6876d04423e8cf32c0f';
+const ELEVENLABS_API_KEY = 'sk_29ee55324dae28cf481708ffe28b32f5e7059b4403726798';
 const ELEVENLABS_BASE = 'https://api.elevenlabs.io/v1';
 const LOCALSTORAGE_VOICE_KEY = 'eleven_preferred_voice';
 
