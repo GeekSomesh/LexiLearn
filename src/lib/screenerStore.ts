@@ -232,7 +232,9 @@ export function applyRecommendations(store: RecommendStore | boolean) {
             line-height: var(--lexile-line-height, 1.6) !important;
             font-weight: var(--lexile-font-weight, 400) !important;
           }
-          .lexile-line-focus .bionic-reading, .lexile-line-focus p {
+          /* Only apply the line-focus gradient when the OpenDyslexic class is active */
+          .lexile-open-dyslexic .lexile-line-focus .bionic-reading,
+          .lexile-open-dyslexic .lexile-line-focus p {
             background: linear-gradient(transparent 70%, rgba(255,255,255,0.6) 70%);
           }
         `;
