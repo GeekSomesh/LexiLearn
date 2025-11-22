@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth0 } from "@auth0/auth0-react";
 import { Sidebar } from "./components/Sidebar";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { FormattingToolbar } from "./components/FormattingToolbar";
@@ -20,6 +21,7 @@ import { SummarizerPage } from "./components/SummarizerPage";
 import { NotesPage } from "./components/NotesPage";
 import { Project, Chat, Message, MindMapNode } from "./types";
 import { callOpenRouter } from "./services/openRouterService";
+import { fetchChats as apiFetchChats, createChat as apiCreateChat, fetchMessages as apiFetchMessages, addMessage as apiAddMessage } from "./services/chatApi";
 
 const sampleProjects: Project[] = [
   {
@@ -134,6 +136,8 @@ function App() {
   const [messages, setMessages] = useState<Message[]>(sampleMessages);
   const [mindMapNodes] = useState<MindMapNode[]>(sampleMindMapNodes);
   const [isLoading, setIsLoading] = useState(false);
+  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const [authToken, setAuthToken] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<
     | "chat"
     | "summarizer"
@@ -197,6 +201,52 @@ function App() {
     }
   }, []);
 
+  // When authenticated, fetch token and load remote chats
+  useEffect(() => {
+    (async () => {
+      if (!isAuthenticated) {
+        setAuthToken(null);
+        return;
+      }
+      try {
+        const token = await getAccessTokenSilently();
+        setAuthToken(token);
+        const remote = await apiFetchChats(token);
+        const mapped: Chat[] = remote.map((c) => ({
+          id: c.id,
+          user_id: "remote",
+          project_id: null,
+          title: c.title,
+          created_at: c.created_at,
+          updated_at: c.updated_at,
+        }));
+        setChats((prev) => {
+          const extras = prev.filter((p) => !mapped.some((m) => m.id === p.id));
+          return [...mapped, ...extras];
+        });
+        const hasPrevRemote = mapped.some((c) => c.id === selectedChatId);
+        const firstRemoteId = mapped[0]?.id;
+        const fetchId = hasPrevRemote ? selectedChatId : firstRemoteId;
+        if (fetchId) {
+          try {
+            const msgs = await apiFetchMessages(token, fetchId);
+            // Only replace messages for that chat; keep any local messages for other chats
+            setMessages((prev) => {
+              const others = prev.filter((m) => m.chat_id !== fetchId);
+              return [...others, ...msgs as any];
+            });
+          } catch (e) {
+            console.warn("Failed to fetch messages for", fetchId, e);
+          }
+        }
+        // Preserve user selection if they created a local chat; only set if none selected yet
+        setSelectedChatId((prev) => prev ?? firstRemoteId ?? null);
+      } catch (e) {
+        console.warn("Failed to load remote chats", e);
+      }
+    })();
+  }, [isAuthenticated, getAccessTokenSilently]);
+
   // Dyslexic font toggle state
   const [dyslexicEnabled, setDyslexicEnabled] = useState<boolean>(false);
 
@@ -258,23 +308,55 @@ function App() {
   const chatMessages = messages.filter((msg) => msg.chat_id === selectedChatId);
 
   const handleNewChat = () => {
-    const newChat: Chat = {
-      id: `chat-${Date.now()}`,
-      user_id: "demo",
+    console.log('[chat] New Chat button clicked. isAuthenticated=', isAuthenticated);
+    const createLocal = (id: string, title = "New Chat"): Chat => ({
+      id,
+      user_id: isAuthenticated ? "remote" : "demo",
       project_id: null,
-      title: "New Chat",
+      title,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    };
-    setChats([newChat, ...chats]);
-    setSelectedChatId(newChat.id);
-    // Ensure the UI switches back to chat view so the user sees the new chat immediately
+    });
+    // Optimistic insertion
+    const tempId = `temp-${Date.now()}`;
+    const optimistic = createLocal(tempId);
+    setChats((prev) => [optimistic, ...prev]);
+    setSelectedChatId(tempId);
     setCurrentView("chat");
+    if (isAuthenticated && authToken) {
+      apiCreateChat(authToken, "New Chat")
+        .then((row) => {
+          console.log('[chat] Remote chat created', row.id);
+          setChats((prev) => {
+            return prev.map((c) => c.id === tempId ? { ...c, id: row.id, title: row.title, created_at: row.created_at, updated_at: row.updated_at } : c);
+          });
+          setSelectedChatId(row.id);
+        })
+        .catch((e) => {
+          console.warn('[chat] Remote create failed, keeping local temp chat', e);
+          // Convert temp to stable local id so later remote sync doesn't discard it
+          setChats((prev) => prev.map((c) => c.id === tempId ? { ...c, id: `chat-${Date.now()}` } : c));
+          setSelectedChatId((prev) => prev === tempId ? `chat-${Date.now()}` : prev);
+        });
+    } else {
+      console.log('[chat] Guest mode chat created');
+      // Replace temp id with permanent local id
+      const newLocalId = `chat-${Date.now()}`;
+      setChats((prev) => prev.map((c) => c.id === tempId ? { ...c, id: newLocalId } : c));
+      setSelectedChatId(newLocalId);
+    }
   };
 
   const handleSelectChat = (chatId: string) => {
     setSelectedChatId(chatId);
     setCurrentView("chat");
+    if (isAuthenticated && authToken) {
+      apiFetchMessages(authToken, chatId)
+        .then((rows) => {
+          setMessages(rows as any);
+        })
+        .catch((e) => console.warn("fetch messages failed", e));
+    }
   };
 
   const handleSendMessage = async (content: string) => {
@@ -289,6 +371,9 @@ function App() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    if (isAuthenticated && authToken) {
+      apiAddMessage(authToken, selectedChatId, "user", content).catch(() => {});
+    }
     setIsLoading(true);
 
     try {
@@ -316,6 +401,9 @@ function App() {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      if (isAuthenticated && authToken) {
+        apiAddMessage(authToken, selectedChatId, "assistant", assistantResponse).catch(() => {});
+      }
 
       if (selectedChat && selectedChat.title === "New Chat") {
         setChats((prev) =>

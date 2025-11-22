@@ -7,6 +7,7 @@ import {
   Zap,
   FileUp,
 } from "lucide-react";
+import AuthButtons from "./AuthButtons";
 import { Project, Chat } from "../types";
 
 interface SidebarProps {
@@ -47,11 +48,14 @@ export const Sidebar = ({
 }: SidebarProps) => {
   return (
     <aside className="w-full lg:w-64 bg-[#E8E4F3] h-screen flex flex-col p-4 fixed lg:relative z-20">
-      <div className="flex items-center gap-2 mb-6">
-        <Brain className="w-8 h-8 text-purple-600" aria-hidden="true" />
-        <h1 className="text-xl font-bold text-gray-800 font-['Comic_Sans_MS']">
-          LexiLearn
-        </h1>
+      <div className="flex items-center justify-between gap-2 mb-6">
+        <div className="flex items-center gap-2">
+          <Brain className="w-8 h-8 text-purple-600" aria-hidden="true" />
+          <h1 className="text-xl font-bold text-gray-800 font-['Comic_Sans_MS']">
+            LexiLearn
+          </h1>
+        </div>
+        <AuthButtons />
       </div>
 
       <button

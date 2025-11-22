@@ -8,16 +8,22 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "auth0:brand": "node scripts/update-auth0-branding.mjs",
+    "server": "node server/index.mjs"
   },
   "dependencies": {
+    "@auth0/auth0-react": "^2.9.0",
     "@supabase/supabase-js": "^2.57.4",
     "lucide-react": "^0.344.0",
     "mermaid": "^11.12.1",
     "pdfjs-dist": "^5.4.394",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "text-vide": "^1.8.4"
+    "text-vide": "^1.8.4",
+    "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.1.0",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
